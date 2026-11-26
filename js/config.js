@@ -1,3 +1,7 @@
+// TEAM PASSCODE — set it with:  python3 tools/set-passcode.py   (don't edit this line by hand)
+// Only a salted PBKDF2 hash is stored here, never the passcode itself.
+window.IMAGICA_AUTH = {"salt": "ac2ebe55859b2f2441a389cc4ccbb591", "iterations": 210000, "hash": "f35eb9bf31184e76675452b39c6f9d8cc1ab7de761e642058cf9f934d933af55"};
+
 // Default business details and price list.
 // The team can change all of this inside the app (Settings / Price List);
 // these values are only used the first time the app is opened on a device.
@@ -21,9 +25,7 @@ window.IMAGICA_DEFAULTS = {
       "This proposal has been prepared especially for your {events}. Everything here can be tailored to you; just tell us what you would like to change.",
     terms:
       "• An advance payment confirms your date; the balance is due on the wedding day.\n" +
-      "• Edited photos are delivered within 30 days; films and albums within 60–90 days.\n" +
-      "• Travel and stay outside our base location are charged extra unless included above.\n" +
-      "• Raw footage is not included unless listed in this proposal.",
+      "• Edited photos are delivered within 30 days; films and albums within 60–90 days.",
     stats: [
       { value: "2018", label: "Capturing weddings since" },
       { value: "364+", label: "Moments captured & counting" },

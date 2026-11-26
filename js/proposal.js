@@ -231,10 +231,10 @@
   }
 
   function notesAndTerms(q, s) {
-    const valid = day(IQ.validUntil(q, s), { day: "numeric", month: "long", year: "numeric" });
+    const terms = String(s.terms || "").trim();
     return `
       ${q.notes ? `<section class="block">${title("A note for you")}<p class="prose">${esc(q.notes)}</p></section>` : ""}
-      <section class="block">${title("Terms")}<p class="prose small">${esc(s.terms)}\n• This proposal is valid until ${esc(valid)}.</p></section>`;
+      ${terms ? `<section class="block">${title("Terms")}<p class="prose small">${esc(terms)}</p></section>` : ""}`;
   }
 
   function signOff(s) {

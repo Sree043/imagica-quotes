@@ -22,10 +22,26 @@
   <script src="js/app.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.14.1/cdn.min.js"></script>
 </head>
-<body x-data="quoteApp" x-cloak>
+<body x-data="quoteApp" x-cloak :class="{ 'is-locked': locked }">
+
+  <!-- ===== Team login ===== -->
+  <div class="login" x-show="locked">
+    <form class="login-card" @submit.prevent="login()">
+      <img src="assets/logo-gold.png" alt="Imagica Weddings" class="login-logo">
+      <h1>Team login</h1>
+      <p class="login-sub">Enter the team passcode to create and send quotes.</p>
+      <input type="text" name="username" value="Imagica team" autocomplete="username" hidden>
+      <input type="password" class="login-input" :class="{ shake: loginError }" placeholder="Passcode"
+             autocomplete="current-password" x-model="passInput" @input="loginError = ''" autofocus>
+      <label class="login-remember"><input type="checkbox" x-model="remember"> Keep me signed in on this device</label>
+      <p class="login-error" x-show="loginError" x-text="loginError"></p>
+      <button type="submit" class="login-btn" :disabled="checking || !passInput" x-text="checking ? 'Checking…' : 'Unlock'"></button>
+    </form>
+    <p class="login-foot">Looking for your proposal? Please open the link we sent you on WhatsApp.</p>
+  </div>
 
   <!-- ===== Top bar ===== -->
-  <header class="topbar">
+  <header class="topbar" x-show="!locked">
     <template x-if="!editingId">
       <div class="topbar-inner">
         <img src="assets/logo-mark-gold.png" alt="" class="topbar-mark">
@@ -47,7 +63,7 @@
     </template>
   </header>
 
-  <main class="wrap">
+  <main class="wrap" x-show="!locked">
 
     <!-- ===== Quotes list ===== -->
     <section x-show="!editingId && tab === 'quotes'">
@@ -399,6 +415,12 @@
         <textarea rows="6" x-model="settings.terms"></textarea>
       </div>
 
+      <div class="panel" x-show="passcodeEnabled">
+        <h3>Security</h3>
+        <p class="hint">Lock the app on this device. The team passcode will be needed to open it again.</p>
+        <button type="button" class="btn" @click="lockApp()">🔒 Lock app</button>
+      </div>
+
       <div class="panel">
         <h3>Backup</h3>
         <p class="hint">Quotes are saved in this browser on this device. Download a backup regularly, and use it to move your quotes to another phone or laptop.</p>
@@ -411,7 +433,7 @@
   </main>
 
   <!-- ===== Tab bar ===== -->
-  <nav class="tabbar" x-show="!editingId">
+  <nav class="tabbar" x-show="!editingId && !locked">
     <button :class="{ active: tab === 'quotes' }" @click="tab = 'quotes'"><span class="tab-icon">❖</span>Quotes</button>
     <button :class="{ active: tab === 'prices' }" @click="tab = 'prices'"><span class="tab-icon">₹</span>Price List</button>
     <button :class="{ active: tab === 'settings' }" @click="tab = 'settings'"><span class="tab-icon">⚙︎</span>Settings</button>

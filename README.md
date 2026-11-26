@@ -30,6 +30,13 @@ The proposal shows *what's included* and **one total**. It doesn't show individu
 
 Upload your best wedding photos to the `assets/photos` folder of the repository (GitHub → *Add file → Upload files*). Then in **Settings → Proposal**, enter the paths, e.g. `assets/photos/cover.jpg` for the cover and `assets/photos/gallery-1.jpg` (one per line) for the gallery. Keep each photo under ~500 KB so proposals load fast.
 
+## Team login
+
+The quote builder opens with a **team passcode** screen (proposal links for couples never need it).
+To change the passcode, run `python3 tools/set-passcode.py` in this folder and upload the updated `js/config.js`.
+Only a salted hash is stored, never the passcode itself. Because the site is public, treat this as a lock screen
+that keeps outsiders out, not bank-level security. A longer passcode is harder to guess.
+
 ## Good to know
 
 - **Prices are samples.** Set your real rates in the **Price List** tab. "Standard quantity" decides what new events and quotes start with.

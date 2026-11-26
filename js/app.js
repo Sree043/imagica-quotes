@@ -8,6 +8,11 @@ function loadData() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const d = JSON.parse(raw);
+      // Older default terms had extra lines the team asked to remove; upgrade them if untouched.
+      if (d.settings && /Travel and stay outside our base location/.test(d.settings.terms || "") &&
+          /Raw footage is not included/.test(d.settings.terms || "")) {
+        d.settings.terms = DEF.settings.terms;
+      }
       return {
         quotes: Array.isArray(d.quotes) ? d.quotes : [],
         catalog: Array.isArray(d.catalog) && d.catalog.length ? d.catalog : IQ.clone(DEF.catalog),
@@ -18,6 +23,30 @@ function loadData() {
     console.warn("Could not read saved data", e);
   }
   return { quotes: [], catalog: IQ.clone(DEF.catalog), settings: IQ.clone(DEF.settings) };
+}
+
+// ---------- Team passcode (lock screen) ----------
+const AUTH = window.IMAGICA_AUTH || {};
+const SESSION_KEY = "imagica-session";
+const passcodeEnabled = () => !!(AUTH.hash && AUTH.salt);
+
+async function derivePasscode(passcode) {
+  const bytes = (hex) => new Uint8Array(hex.match(/../g).map((h) => parseInt(h, 16)));
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(passcode.trim()), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: bytes(AUTH.salt), iterations: AUTH.iterations || 210000, hash: "SHA-256" }, key, 256);
+  return [...new Uint8Array(bits)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function hasValidSession() {
+  if (!passcodeEnabled()) return true;
+  for (const store of [localStorage, sessionStorage]) {
+    try {
+      const s = JSON.parse(store.getItem(SESSION_KEY) || "null");
+      if (s && s.hash === AUTH.hash && (!s.expires || s.expires > Date.now())) return true;
+    } catch (e) { /* ignore */ }
+  }
+  return false;
 }
 
 document.addEventListener("alpine:init", () => {
@@ -33,6 +62,14 @@ document.addEventListener("alpine:init", () => {
     galleryText: "",
     toastText: "",
     toastTimer: null,
+
+    // lock screen
+    locked: !hasValidSession(),
+    passInput: "",
+    loginError: "",
+    remember: true,
+    checking: false,
+    passcodeEnabled: passcodeEnabled(),
 
     // constants for templates
     SIDES: IQ.SIDES,
@@ -50,6 +87,37 @@ document.addEventListener("alpine:init", () => {
       this.catalog = d.catalog;
       this.settings = d.settings;
       this.galleryText = (this.settings.galleryPhotos || []).join("\n");
+    },
+
+    async login() {
+      if (!this.passInput || this.checking) return;
+      this.checking = true;
+      this.loginError = "";
+      try {
+        const hash = await derivePasscode(this.passInput);
+        if (hash === AUTH.hash) {
+          const session = JSON.stringify({ hash, expires: Date.now() + 30 * 24 * 3600 * 1000 });
+          (this.remember ? localStorage : sessionStorage).setItem(SESSION_KEY, session);
+          this.locked = false;
+          this.passInput = "";
+        } else {
+          await new Promise((r) => setTimeout(r, 600));
+          this.loginError = "That passcode isn't right. Please try again.";
+          this.passInput = "";
+        }
+      } catch (e) {
+        this.loginError = "Login needs a secure (https) connection.";
+      }
+      this.checking = false;
+    },
+
+    lockApp() {
+      localStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(SESSION_KEY);
+      this.editingId = null;
+      this.tab = "quotes";
+      this.locked = true;
+      window.scrollTo(0, 0);
     },
 
     persist() {
