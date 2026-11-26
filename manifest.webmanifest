@@ -1,0 +1,13 @@
+{
+  "name": "Imagica Quotes",
+  "short_name": "Imagica Quotes",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1a1717",
+  "theme_color": "#1a1717",
+  "icons": [
+    { "src": "assets/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Imagica Quotes</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#1a1717">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Imagica Quotes">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/shared.js"></script>
+  <script src="js/app.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.14.1/cdn.min.js"></script>
+</head>
+<body x-data="quoteApp" x-cloak>
+
+  <!-- ===== Top bar ===== -->
+  <header class="topbar">
+    <template x-if="!editingId">
+      <div class="topbar-inner">
+        <img src="assets/logo-mark-gold.png" alt="" class="topbar-mark">
+        <div>
+          <div class="topbar-title" x-text="settings.name"></div>
+          <div class="topbar-sub">Quotes &amp; proposals</div>
+        </div>
+      </div>
+    </template>
+    <template x-if="editingId && current">
+      <div class="topbar-inner">
+        <button class="back" @click="closeEditor()" aria-label="Back to quotes">‹ Quotes</button>
+        <div class="topbar-center">
+          <div class="topbar-title" x-text="current.clientName || 'New quote'"></div>
+          <div class="topbar-sub" x-text="current.number"></div>
+        </div>
+        <span class="saved">Saved</span>
+      </div>
+    </template>
+  </header>
+
+  <main class="wrap">
+
+    <!-- ===== Quotes list ===== -->
+    <section x-show="!editingId && tab === 'quotes'">
+      <div class="list-head">
+        <input type="search" class="search" placeholder="Search client, phone or quote no." x-model="search">
+        <button class="btn primary" @click="newQuote()">+ New Quote</button>
+      </div>
+
+      <template x-if="quotes.length === 0">
+        <div class="empty">
+          <img src="assets/logo-mark-gold.png" alt="" class="empty-mark">
+          <h2>No quotes yet</h2>
+          <p>Build a quote in about a minute and send the couple a beautiful proposal link on WhatsApp.</p>
+          <button class="btn primary" @click="newQuote()">Create your first quote</button>
+        </div>
+      </template>
+
+      <div class="cards">
+        <template x-for="q in filteredQuotes" :key="q.id">
+          <article class="quote-card" @click="openQuote(q)">
+            <div class="quote-card-main">
+              <div class="quote-name" x-text="q.clientName || 'Unnamed client'"></div>
+              <div class="muted small" x-text="[q.number, firstDate(q), q.weddingType].filter(Boolean).join(' · ')"></div>
+            </div>
+            <div class="quote-card-side">
+              <div class="quote-total" x-text="inr(totals(q).grand)"></div>
+              <span class="status" :class="'status-' + q.status.toLowerCase()" x-text="q.status"></span>
+            </div>
+            <div class="quote-actions" @click.stop>
+              <button class="link-btn" @click="duplicateQuote(q)">Duplicate</button>
+              <button class="link-btn danger" @click="deleteQuote(q)">Delete</button>
+            </div>
+          </article>
+        </template>
+      </div>
+    </section>
+
+    <!-- ===== Quote editor ===== -->
+    <template x-if="editingId && current">
+      <section class="editor" @input.debounce.300ms="persist()" @change="persist()">
+
+        <div class="panel">
+          <h3>Client</h3>
+          <label class="field"><span>Couple / client name</span>
+            <input type="text" placeholder="e.g. Anjali & Rahul" x-model="current.clientName"></label>
+          <div class="row2">
+            <label class="field"><span>Phone (WhatsApp)</span>
+              <input type="tel" inputmode="tel" placeholder="98470 00000" x-model="current.phone"></label>
+            <label class="field"><span>Email (optional)</span>
+              <input type="email" x-model="current.email"></label>
+          </div>
+          <div class="row2">
+            <label class="field"><span>Wedding type</span>
+              <select x-model="current.weddingType">
+                <template x-for="t in WEDDING_TYPES" :key="t"><option :value="t" x-text="t" :selected="t === current.weddingType"></option></template>
+              </select></label>
+            <label class="field"><span>Status</span>
+              <select x-model="current.status">
+                <template x-for="s in STATUSES" :key="s"><option :value="s" x-text="s" :selected="s === current.status"></option></template>
+              </select></label>
+          </div>
+        </div>
+
+        <!-- Events -->
+        <div class="panel">
+          <h3>Events</h3>
+          <p class="hint" x-show="current.events.length === 0">Add each function (Engagement, Wedding, Reception…). Each starts with your standard crew; "Both sides" doubles it.</p>
+
+          <template x-for="(ev, index) in current.events" :key="ev.id">
+            <div class="event" :class="{ open: ev.open }">
+              <button class="event-head" @click="ev.open = !ev.open">
+                <div class="event-head-main">
+                  <div class="event-name" x-text="ev.name || 'Event'"></div>
+                  <div class="muted small" x-text="[shortDay(ev.date), ev.side, ev.venue].filter(Boolean).join(' · ')"></div>
+                  <div class="crew small" :class="{ warn: ev.items.length === 0 }" x-text="crewSummary(ev)"></div>
+                </div>
+                <div class="event-head-side">
+                  <div class="strong" x-text="inr(ev.items.reduce((t, i) => t + i.unitPrice * i.quantity, 0))"></div>
+                  <span class="chev" x-text="ev.open ? '▴' : '▾'"></span>
+                </div>
+              </button>
+
+              <div class="event-body" x-show="ev.open">
+                <div class="row2">
+                  <label class="field"><span>Event name</span>
+                    <input type="text" list="event-names" x-model="ev.name"></label>
+                  <label class="field"><span>Date</span>
+                    <input type="date" x-model="ev.date"></label>
+                </div>
+                <div class="row2">
+                  <label class="field"><span>Venue / location</span>
+                    <input type="text" placeholder="e.g. Guruvayur" x-model="ev.venue"></label>
+                  <label class="field"><span>Coverage for</span>
+                    <select @change="changeSide(ev, $event.target.value)">
+                      <option value="Bride's side" :selected="ev.side === `Bride's side`">Bride's side</option>
+                      <option value="Groom's side" :selected="ev.side === `Groom's side`">Groom's side</option>
+                      <option value="Both sides" :selected="ev.side === 'Both sides'">Both sides</option>
+                      <option value="Common event" :selected="ev.side === 'Common event'">Common event</option>
+                    </select></label>
+                </div>
+
+                <div class="sub-head">Crew for this event</div>
+                <template x-for="s in servicesIn('coverage')" :key="s.id">
+                  <div class="counter" :class="{ on: qty(ev.items, s) > 0 }">
+                    <div class="counter-info">
+                      <div class="counter-name" x-text="s.name"></div>
+                      <template x-if="qty(ev.items, s) > 0">
+                        <label class="price-edit">₹ <input type="number" inputmode="numeric" min="0"
+                          :value="findItem(ev.items, s.id).unitPrice"
+                          @input="setPrice(ev.items, s.id, $event.target.value)"> each</label>
+                      </template>
+                      <template x-if="qty(ev.items, s) === 0">
+                        <div class="muted small" x-text="inr(s.price) + ' each'"></div>
+                      </template>
+                    </div>
+                    <div class="stepper">
+                      <button type="button" @click="setQty(ev.items, s, qty(ev.items, s) - 1)" :disabled="qty(ev.items, s) === 0" aria-label="One less">−</button>
+                      <span x-text="qty(ev.items, s)"></span>
+                      <button type="button" @click="setQty(ev.items, s, qty(ev.items, s) + 1)" aria-label="One more">+</button>
+                    </div>
+                  </div>
+                </template>
+
+                <template x-for="item in customItems(ev.items, ['coverage'])" :key="item.id">
+                  <div class="custom-item">
+                    <input class="grow" type="text" placeholder="Custom item name" x-model="item.name">
+                    <label>₹<input type="number" inputmode="numeric" min="0" x-model.number="item.unitPrice"></label>
+                    <label>×<input type="number" inputmode="numeric" min="1" x-model.number="item.quantity"></label>
+                    <button type="button" class="icon-btn danger" @click="removeItem(ev.items, item)" aria-label="Remove item">✕</button>
+                  </div>
+                </template>
+
+                <div class="event-tools">
+                  <button type="button" class="link-btn" @click="addCustom(ev.items)">+ Custom item</button>
+                  <button type="button" class="link-btn" @click="applyStandardCrew(ev, ev.side)">↺ Standard crew</button>
+                  <button type="button" class="link-btn" @click="moveEvent(ev, -1)" x-show="index > 0">↑ Move up</button>
+                  <button type="button" class="link-btn danger" @click="removeEvent(ev)">Remove event</button>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <div class="add-event">
+            <select x-model="newEventName">
+              <template x-for="n in EVENT_NAMES" :key="n"><option :value="n" x-text="n" :selected="n === newEventName"></option></template>
+            </select>
+            <button type="button" class="btn" @click="addEvent()">+ Add Event</button>
+          </div>
+          <datalist id="event-names">
+            <template x-for="n in EVENT_NAMES" :key="n"><option :value="n"></option></template>
+          </datalist>
+        </div>
+
+        <!-- Deliverables -->
+        <div class="panel">
+          <h3>Deliverables</h3>
+          <template x-for="s in servicesIn('deliverable')" :key="s.id">
+            <div class="counter" :class="{ on: qty(current.extras, s) > 0 }">
+              <div class="counter-info">
+                <div class="counter-name" x-text="s.name"></div>
+                <template x-if="qty(current.extras, s) > 0">
+                  <label class="price-edit">₹ <input type="number" inputmode="numeric" min="0"
+                    :value="findItem(current.extras, s.id).unitPrice"
+                    @input="setPrice(current.extras, s.id, $event.target.value)"> each</label>
+                </template>
+                <template x-if="qty(current.extras, s) === 0">
+                  <div class="muted small" x-text="inr(s.price) + ' each'"></div>
+                </template>
+              </div>
+              <div class="stepper">
+                <button type="button" @click="setQty(current.extras, s, qty(current.extras, s) - 1)" :disabled="qty(current.extras, s) === 0" aria-label="One less">−</button>
+                <span x-text="qty(current.extras, s)"></span>
+                <button type="button" @click="setQty(current.extras, s, qty(current.extras, s) + 1)" aria-label="One more">+</button>
+              </div>
+            </div>
+          </template>
+          <div class="event-tools">
+            <button type="button" class="link-btn" @click="resetDeliverables()">↺ Standard deliverables</button>
+          </div>
+        </div>
+
+        <!-- Add-ons -->
+        <div class="panel">
+          <h3>Add-ons</h3>
+          <template x-for="s in servicesIn('addon')" :key="s.id">
+            <div class="counter" :class="{ on: qty(current.extras, s) > 0 }">
+              <div class="counter-info">
+                <div class="counter-name" x-text="s.name"></div>
+                <template x-if="qty(current.extras, s) > 0">
+                  <label class="price-edit">₹ <input type="number" inputmode="numeric" min="0"
+                    :value="findItem(current.extras, s.id).unitPrice"
+                    @input="setPrice(current.extras, s.id, $event.target.value)"> each</label>
+                </template>
+                <template x-if="qty(current.extras, s) === 0">
+                  <div class="muted small" x-text="inr(s.price) + ' each'"></div>
+                </template>
+              </div>
+              <div class="stepper">
+                <button type="button" @click="setQty(current.extras, s, qty(current.extras, s) - 1)" :disabled="qty(current.extras, s) === 0" aria-label="One less">−</button>
+                <span x-text="qty(current.extras, s)"></span>
+                <button type="button" @click="setQty(current.extras, s, qty(current.extras, s) + 1)" aria-label="One more">+</button>
+              </div>
+            </div>
+          </template>
+          <template x-for="item in customItems(current.extras, ['deliverable', 'addon'])" :key="item.id">
+            <div class="custom-item">
+              <input class="grow" type="text" placeholder="Custom item name" x-model="item.name">
+              <label>₹<input type="number" inputmode="numeric" min="0" x-model.number="item.unitPrice"></label>
+              <label>×<input type="number" inputmode="numeric" min="1" x-model.number="item.quantity"></label>
+              <button type="button" class="icon-btn danger" @click="removeItem(current.extras, item)" aria-label="Remove item">✕</button>
+            </div>
+          </template>
+          <div class="event-tools">
+            <button type="button" class="link-btn" @click="addCustom(current.extras)">+ Custom item</button>
+          </div>
+        </div>
+
+        <!-- Adjustments -->
+        <div class="panel">
+          <h3>Adjustments</h3>
+          <div class="row2">
+            <label class="field"><span>Travel &amp; stay (₹)</span>
+              <input type="number" inputmode="numeric" min="0" x-model.number="current.travel"></label>
+            <label class="field"><span>Discount (₹)</span>
+              <input type="number" inputmode="numeric" min="0" x-model.number="current.discount"></label>
+          </div>
+          <label class="check"><input type="checkbox" x-model="current.includeGST">
+            <span x-text="'Add GST (' + settings.gstRate + '%)'"></span></label>
+          <label class="field"><span>Note for the couple (optional)</span>
+            <textarea rows="3" placeholder="e.g. Includes 2 complimentary 12×18 frames" x-model="current.notes"></textarea></label>
+        </div>
+
+        <!-- Summary -->
+        <div class="panel summary">
+          <h3>Summary</h3>
+          <div class="sum-row"><span>Events</span><span x-text="inr(totals(current).events)"></span></div>
+          <div class="sum-row"><span>Deliverables &amp; add-ons</span><span x-text="inr(totals(current).extras)"></span></div>
+          <div class="sum-row" x-show="totals(current).travel > 0"><span>Travel &amp; stay</span><span x-text="inr(totals(current).travel)"></span></div>
+          <div class="sum-row gold" x-show="totals(current).discount > 0"><span>Discount</span><span x-text="'−' + inr(totals(current).discount)"></span></div>
+          <div class="sum-row" x-show="totals(current).gst > 0"><span>GST</span><span x-text="inr(totals(current).gst)"></span></div>
+          <div class="sum-row total"><span>Total</span><span x-text="inr(totals(current).grand)"></span></div>
+          <div class="sum-row"><span x-text="'Advance to book (' + settings.advancePercent + '%)'"></span><span x-text="inr(totals(current).advance)"></span></div>
+          <div class="share-row">
+            <button type="button" class="btn" @click="copyLink()">Copy proposal link</button>
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <div>
+            <div class="muted small">Total</div>
+            <div class="action-total" x-text="inr(totals(current).grand)"></div>
+          </div>
+          <div class="action-buttons">
+            <button type="button" class="btn" @click="openProposal()">Preview</button>
+            <button type="button" class="btn whatsapp" @click="sendWhatsApp()">Send on WhatsApp</button>
+          </div>
+        </div>
+      </section>
+    </template>
+
+    <!-- ===== Price list ===== -->
+    <section x-show="!editingId && tab === 'prices'" @input.debounce.300ms="persist()" @change="persist()">
+      <p class="hint">These start as <strong>sample prices</strong> — set your real rates. New quotes use these prices; you can still change a price inside any quote. "Standard" decides what new events and quotes start with.</p>
+      <template x-for="cat in CATEGORIES" :key="cat.key">
+        <div class="panel">
+          <h3 x-text="cat.label"></h3>
+          <template x-for="s in servicesIn(cat.key)" :key="s.id">
+            <div class="service" :class="{ open: editingService === s.id }">
+              <button type="button" class="service-head" @click="editingService = editingService === s.id ? null : s.id">
+                <div>
+                  <div class="counter-name" x-text="s.name"></div>
+                  <div class="gold small" x-show="s.standardQty > 0"
+                       x-text="'Standard: ' + s.standardQty + (cat.key === 'coverage' ? ' per side' : '')"></div>
+                </div>
+                <div class="strong" x-text="inr(s.price)"></div>
+              </button>
+              <div class="service-body" x-show="editingService === s.id">
+                <label class="field"><span>Name</span><input type="text" x-model="s.name"></label>
+                <label class="field"><span>Short description (shown on the proposal)</span><input type="text" x-model="s.detail"></label>
+                <div class="row2">
+                  <label class="field"><span x-text="cat.key === 'coverage' ? 'Price per person, per event (₹)' : 'Price each (₹)'"></span>
+                    <input type="number" inputmode="numeric" min="0" x-model.number="s.price"></label>
+                  <label class="field"><span>Standard quantity</span>
+                    <input type="number" inputmode="numeric" min="0" max="20" x-model.number="s.standardQty"></label>
+                </div>
+                <p class="hint" x-text="standardHint(cat.key)"></p>
+                <label class="field"><span>Category</span>
+                  <select x-model="s.category">
+                    <template x-for="c in CATEGORIES" :key="c.key"><option :value="c.key" x-text="c.label" :selected="c.key === s.category"></option></template>
+                  </select></label>
+                <button type="button" class="link-btn danger" @click="deleteService(s)">Delete service</button>
+              </div>
+            </div>
+          </template>
+          <button type="button" class="link-btn" @click="addService(cat.key)">+ Add service</button>
+        </div>
+      </template>
+      <button type="button" class="link-btn danger" @click="resetCatalog()">Reset price list to sample prices</button>
+    </section>
+
+    <!-- ===== Settings ===== -->
+    <section x-show="!editingId && tab === 'settings'" @input.debounce.300ms="persist()" @change="persist()">
+      <div class="panel">
+        <h3>Business details</h3>
+        <label class="field"><span>Business name</span><input type="text" x-model="settings.name"></label>
+        <label class="field"><span>Tagline</span><input type="text" x-model="settings.tagline"></label>
+        <div class="row2">
+          <label class="field"><span>Phone 1 (WhatsApp)</span><input type="tel" x-model="settings.phone1"></label>
+          <label class="field"><span>Phone 2</span><input type="tel" x-model="settings.phone2"></label>
+        </div>
+        <div class="row2">
+          <label class="field"><span>Instagram</span><input type="text" x-model="settings.instagram"></label>
+          <label class="field"><span>Website</span><input type="text" x-model="settings.website"></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Quote defaults</h3>
+        <div class="row3">
+          <label class="field"><span>GST %</span><input type="number" inputmode="decimal" min="0" x-model.number="settings.gstRate"></label>
+          <label class="field"><span>Advance %</span><input type="number" inputmode="decimal" min="0" x-model.number="settings.advancePercent"></label>
+          <label class="field"><span>Valid for (days)</span><input type="number" inputmode="numeric" min="1" x-model.number="settings.validityDays"></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Proposal</h3>
+        <label class="field"><span>Signed by (leave empty for "Team Imagica Weddings")</span>
+          <input type="text" placeholder="e.g. Arjun · Lead Photographer" x-model="settings.contactPerson"></label>
+        <label class="field"><span>Welcome letter — <code>{events}</code> becomes the couple's events</span>
+          <textarea rows="7" x-model="settings.welcomeMessage"></textarea></label>
+        <div class="sub-head">Highlights</div>
+        <template x-for="(stat, i) in settings.stats" :key="i">
+          <div class="row2">
+            <label class="field"><span>Big text</span><input type="text" x-model="stat.value"></label>
+            <label class="field"><span>Caption</span><input type="text" x-model="stat.label"></label>
+          </div>
+        </template>
+        <div class="sub-head">Photos</div>
+        <p class="hint">Upload your best wedding photos into the <code>assets/photos</code> folder of your GitHub repository, then type their paths here (or paste any image link).</p>
+        <label class="field"><span>Cover photo</span>
+          <input type="text" placeholder="assets/photos/cover.jpg" x-model="settings.coverPhoto"></label>
+        <label class="field"><span>Gallery photos (one per line, up to 6)</span>
+          <textarea rows="4" placeholder="assets/photos/gallery-1.jpg" x-model="galleryText" @input.debounce.400ms="saveGallery()"></textarea></label>
+      </div>
+
+      <div class="panel">
+        <h3>Terms &amp; conditions</h3>
+        <textarea rows="6" x-model="settings.terms"></textarea>
+      </div>
+
+      <div class="panel">
+        <h3>Backup</h3>
+        <p class="hint">Quotes are saved in this browser on this device. Download a backup regularly, and use it to move your quotes to another phone or laptop.</p>
+        <div class="share-row">
+          <button type="button" class="btn" @click="exportBackup()">Download backup</button>
+          <label class="btn">Restore backup<input type="file" accept="application/json,.json" hidden @change="importBackup($event)"></label>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== Tab bar ===== -->
+  <nav class="tabbar" x-show="!editingId">
+    <button :class="{ active: tab === 'quotes' }" @click="tab = 'quotes'"><span class="tab-icon">❖</span>Quotes</button>
+    <button :class="{ active: tab === 'prices' }" @click="tab = 'prices'"><span class="tab-icon">₹</span>Price List</button>
+    <button :class="{ active: tab === 'settings' }" @click="tab = 'settings'"><span class="tab-icon">⚙︎</span>Settings</button>
+  </nav>
+
+  <div class="toast" x-show="toastText" x-transition.opacity x-text="toastText"></div>
+</body>
+</html>
