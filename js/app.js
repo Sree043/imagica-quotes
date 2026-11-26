@@ -28,6 +28,7 @@ function loadData() {
 // ---------- Team passcode (lock screen) ----------
 const AUTH = window.IMAGICA_AUTH || {};
 const SESSION_KEY = "imagica-session";
+const RETURN_KEY = "imagica-return";
 const passcodeEnabled = () => !!(AUTH.hash && AUTH.salt);
 
 async function derivePasscode(passcode) {
@@ -87,6 +88,12 @@ document.addEventListener("alpine:init", () => {
       this.catalog = d.catalog;
       this.settings = d.settings;
       this.galleryText = (this.settings.galleryPhotos || []).join("\n");
+      // Coming back from Preview: reopen the quote that was being edited.
+      const back = sessionStorage.getItem(RETURN_KEY);
+      if (back) {
+        sessionStorage.removeItem(RETURN_KEY);
+        if (this.quotes.some((q) => q.id === back)) this.editingId = back;
+      }
     },
 
     async login() {
@@ -365,7 +372,10 @@ document.addEventListener("alpine:init", () => {
 
     openProposal() {
       this.persist();
-      window.open(this.proposalLink(), "_blank");
+      // Open in the same window (works inside the home-screen app too); the
+      // preview shows a "Back to quote" button that returns here.
+      sessionStorage.setItem(RETURN_KEY, this.editingId);
+      location.href = this.proposalLink().replace("proposal.html#", "proposal.html?preview=1#");
     },
 
     async copyLink() {

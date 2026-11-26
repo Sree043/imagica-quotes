@@ -26,6 +26,7 @@
     globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/>',
     arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
     download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    back: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
   };
   const icon = (name, cls = "ico") =>
     `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.sparkle}</svg>`;
@@ -255,6 +256,12 @@
     </section>`;
   }
 
+  // Shown only when the team opens Preview from the builder (?preview=1), never to couples.
+  function backBar() {
+    if (!new URLSearchParams(location.search).has("preview")) return "";
+    return `<a class="back-btn" href="index.html">${icon("back", "ico tiny")} Back to quote</a>`;
+  }
+
   function dock(q, s) {
     const text = `Hi ${s.name}! We'd like to confirm our booking for proposal ${q.number}${q.clientName ? ` (${q.clientName})` : ""}.`;
     return `
@@ -290,7 +297,7 @@
       `<div class="paper">` +
       letter(q, s) + glance(q) + coverage(q) + deliverables(q) + investment(q, s, t) + confirmBlock(q, s) +
       gallery(s) + stats(s) + steps() + notesAndTerms(q, s) + signOff(s) +
-      `</div>` + dock(q, s);
+      `</div>` + dock(q, s) + backBar();
   }
 
   window.addEventListener("hashchange", render);

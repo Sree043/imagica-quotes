@@ -246,6 +246,14 @@ a { color: inherit; }
 }
 .dock-btn.primary { background: #25d366; color: #0b2e17; }
 
+/* Back to builder (team preview only) */
+.back-btn {
+  position: fixed; z-index: 11; left: 12px; top: calc(12px + env(safe-area-inset-top));
+  display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 99px;
+  background: rgba(26,23,23,.92); backdrop-filter: blur(12px); color: #fff; text-decoration: none;
+  font: 600 14px var(--sans); box-shadow: 0 6px 20px rgba(0,0,0,.25);
+}
+
 /* Missing link */
 .missing { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; }
 .missing img { height: 80px; }
@@ -257,7 +265,7 @@ a { color: inherit; }
 @page :first { margin: 0; }
 @media print {
   body { background: #fff; font-size: 11pt; }
-  .dock, .scroll-cue { display: none !important; }
+  .dock, .back-btn, .scroll-cue { display: none !important; }
   .cover { height: 297mm; min-height: 0; break-after: page; }
   .cover-logo { width: 62mm; margin-top: 26mm; }
   .cover-text { padding: 0 20mm 26mm; }
